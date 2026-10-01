@@ -2,10 +2,17 @@ FROM python:3.14-slim@sha256:44dd04494ee8f3b538294360e7c4b3acb87c8268e4d0a4828a6
 
 COPY --from=ghcr.io/astral-sh/uv:0.11.24@sha256:99ea34acedc870ba4ad11a1f540a1c04267c9f30aadc465a94406f52dfda2c36 /uv /uvx /bin/
 
+# The JVM build of signal-cli, not the native one: the native binary requires
+# x86-64-v3 (AVX2), which the production server's Atom C2338 lacks.
+COPY --from=eclipse-temurin:25-jre@sha256:8da0490fa9a3c26867012019565948eef0ee69438f5c75ac28146967bae984b5 /opt/java/openjdk /opt/java/openjdk
+ENV JAVA_HOME=/opt/java/openjdk
+
 # renovate: datasource=github-releases depName=AsamK/signal-cli
 ARG SIGNAL_CLI_VERSION=0.14.8
-ADD https://github.com/AsamK/signal-cli/releases/download/v${SIGNAL_CLI_VERSION}/signal-cli-${SIGNAL_CLI_VERSION}-Linux-native.tar.gz /tmp/signal-cli.tar.gz
-RUN tar -xzf /tmp/signal-cli.tar.gz -C /usr/local/bin signal-cli \
+ADD https://github.com/AsamK/signal-cli/releases/download/v${SIGNAL_CLI_VERSION}/signal-cli-${SIGNAL_CLI_VERSION}.tar.gz /tmp/signal-cli.tar.gz
+RUN mkdir /opt/signal-cli \
+    && tar -xzf /tmp/signal-cli.tar.gz -C /opt/signal-cli --strip-components=1 \
+    && ln -s /opt/signal-cli/bin/signal-cli /usr/local/bin/signal-cli \
     && rm /tmp/signal-cli.tar.gz
 
 ENV UV_LINK_MODE=copy \
