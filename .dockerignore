@@ -1,0 +1,13 @@
+.git
+.venv
+.ruff_cache
+.ty_cache
+.pytest_cache
+__pycache__
+*.pyc
+
+data/
+tests/
+
+.github
+.pre-commit-config.yaml
