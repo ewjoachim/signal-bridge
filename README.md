@@ -16,7 +16,7 @@ Everything is set through environment variables prefixed with `SIGNAL_BRIDGE_`.
 
 | Variable | Example | Notes |
 |---|---|---|
-| `SIGNAL_BRIDGE_ACCOUNT` | `+33100000000` | The bot's phone number |
+| `SIGNAL_BRIDGE_ACCOUNT` | `+33199000000` | The bot's phone number |
 | `SIGNAL_BRIDGE_ADDRESS` | `bridge@example.org` | Sends digests. Replies come back to `bridge+<reply_token>@example.org`, so the mailbox must accept plus-addressing |
 | `SIGNAL_BRIDGE_ADMIN_EMAIL` | `me@example.org` | Receives an alert after 5 failed iterations in a row |
 | `SIGNAL_BRIDGE_IMAP_HOST`, `_IMAP_USER`, `_IMAP_PASSWORD` | | The mailbox of `ADDRESS`, IMAPS (port 993) |
@@ -54,7 +54,7 @@ sync. Stop the service before running the commands below.
 sc() {
   podman run --rm -it --user 10001:10001 -v /srv/signal-bridge:/data \
     ghcr.io/ewjoachim/signal-bridge:latest \
-    signal-cli --config /data/signal-cli -a "+33100000000" "$@"
+    signal-cli --config /data/signal-cli -a "+33199000000" "$@"
 }
 ```
 
@@ -108,7 +108,7 @@ encrypted store (e.g. Ansible Vault), never from the playbook.
     image: ghcr.io/ewjoachim/signal-bridge:latest
     user: "10001:10001"
     env:
-      SIGNAL_BRIDGE_ACCOUNT: "+33100000000"
+      SIGNAL_BRIDGE_ACCOUNT: "+33199000000"
       SIGNAL_BRIDGE_ADDRESS: bridge@example.org
       SIGNAL_BRIDGE_ADMIN_EMAIL: me@example.org
       SIGNAL_BRIDGE_IMAP_HOST: mail.example.org

@@ -5,7 +5,7 @@ import pytest
 from signal_bridge.config import Settings
 
 BASE_ENV = {
-    "SIGNAL_BRIDGE_ACCOUNT": "+33100000000",
+    "SIGNAL_BRIDGE_ACCOUNT": "+33199000000",
     "SIGNAL_BRIDGE_ADDRESS": "bridge@example.org",
     "SIGNAL_BRIDGE_ADMIN_EMAIL": "admin@example.org",
     "SIGNAL_BRIDGE_IMAP_HOST": "mail.example.org",
