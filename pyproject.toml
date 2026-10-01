@@ -29,6 +29,8 @@ lint = [
     "ty>=0.0.1",
     "prek>=0.2.0",
     "zizmor>=1.0.0",
+    "check-jsonschema>=0.33",
+    "json5>=0.12",
 ]
 test = ["pytest>=8.4"]
 

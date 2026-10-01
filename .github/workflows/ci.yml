@@ -1,0 +1,73 @@
+name: CI
+on: [pull_request]
+
+permissions: {}
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up UV
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: false
+
+      - name: Run tests
+        run: uv run --no-default-groups --group test pytest
+
+  image:
+    name: Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: false
+          load: true
+          tags: signal-bridge:ci
+
+      - name: Smoke test
+        shell: python
+        run: |
+          import subprocess
+
+          def run(*command, env=()):
+              env_args = [arg for key, value in env for arg in ("-e", f"{key}={value}")]
+              subprocess.run(["docker", "run", "--rm", *env_args, "signal-bridge:ci", *command], check=True)
+
+          run("signal-cli", "--version")
+          config = [
+              ("SIGNAL_BRIDGE_ACCOUNT", "+33199000000"),
+              ("SIGNAL_BRIDGE_ADDRESS", "bridge@example.org"),
+              ("SIGNAL_BRIDGE_ADMIN_EMAIL", "admin@example.org"),
+              ("SIGNAL_BRIDGE_IMAP_HOST", "mail.example.org"),
+              ("SIGNAL_BRIDGE_IMAP_USER", "bridge"),
+              ("SIGNAL_BRIDGE_IMAP_PASSWORD", "pw"),
+              ("SIGNAL_BRIDGE_SMTP_HOST", "mail.example.org"),
+              ("SIGNAL_BRIDGE_SMTP_USER", "bridge"),
+              ("SIGNAL_BRIDGE_SMTP_PASSWORD", "pw"),
+              ("SIGNAL_BRIDGE_GROUPS__TEST__GROUP_ID", "Z3JvdXAtaWQ="),
+              ("SIGNAL_BRIDGE_GROUPS__TEST__EMAIL", "test@example.org"),
+              ("SIGNAL_BRIDGE_GROUPS__TEST__LOCALE", "fr"),
+              ("SIGNAL_BRIDGE_GROUPS__TEST__REPLY_TOKEN", "token"),
+          ]
+          run(
+              "python", "-c",
+              "from signal_bridge.config import Settings; from signal_bridge.i18n import translations; "
+              "s = Settings(); assert translations(s.groups['test'].locale).gettext('Signal group') == 'Groupe Signal'",
+              env=config,
+          )
