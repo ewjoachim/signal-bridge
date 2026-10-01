@@ -1,9 +1,11 @@
 import json
 import sqlite3
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from signal_bridge.events import Attachment, Delete, Edit, NewMessage
+from signal_bridge.config import Group
+from signal_bridge.events import Attachment, Delete, Edit, NewMessage, parse_envelope
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (
@@ -61,6 +63,19 @@ class Store:
             row["key"]: row["name"]
             for row in self.conn.execute("SELECT key, name FROM names")
         }
+
+    def ingest(self, raw: dict, account: str, groups: Mapping[str, Group]) -> None:
+        envelope = raw.get("envelope", {})
+        if (uuid := envelope.get("sourceUuid")) and (
+            name := envelope.get("sourceName")
+        ):
+            self.remember_name(uuid, name)
+        event = parse_envelope(raw, account, groups, self.names())
+        if event is None:
+            return
+        if isinstance(event, NewMessage) and event.group_name:
+            self.remember_name(event.group_id, event.group_name)
+        self.apply(event)
 
     def apply(self, event: NewMessage | Edit | Delete) -> None:
         match event:

@@ -11,7 +11,7 @@ from pathlib import Path
 from signal_bridge import mail
 from signal_bridge.config import Group, Settings
 from signal_bridge.digest import digest_due, render_digest, render_welcome
-from signal_bridge.events import Attachment, NewMessage, parse_envelope
+from signal_bridge.events import Attachment
 from signal_bridge.inbound import Inbound, match_group, parse_inbound
 from signal_bridge.signal_cli import SignalCli
 from signal_bridge.store import Store
@@ -62,19 +62,7 @@ class Bridge:
 
     def receive(self) -> None:
         for raw in self.signal.receive():
-            envelope = raw.get("envelope", {})
-            if (uuid := envelope.get("sourceUuid")) and (
-                name := envelope.get("sourceName")
-            ):
-                self.store.remember_name(uuid, name)
-            event = parse_envelope(
-                raw, self.settings.account, self.groups_by_id, self.store.names()
-            )
-            if event is None:
-                continue
-            if isinstance(event, NewMessage) and event.group_name:
-                self.store.remember_name(event.group_id, event.group_name)
-            self.store.apply(event)
+            self.store.ingest(raw, self.settings.account, self.groups_by_id)
         HEARTBEAT.touch()
 
     def forward_emails(self) -> None:
