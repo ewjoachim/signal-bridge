@@ -20,8 +20,8 @@ Everything is set through environment variables prefixed with `SIGNAL_BRIDGE_`.
 | `SIGNAL_BRIDGE_ADDRESS` | `bridge@example.org` | Sends digests. Replies come back to `bridge+<reply_token>@example.org`, so the mailbox must accept plus-addressing |
 | `SIGNAL_BRIDGE_ADMIN_EMAIL` | `me@example.org` | Receives an alert after 5 failed iterations in a row |
 | `SIGNAL_BRIDGE_IMAP_HOST`, `_IMAP_USER`, `_IMAP_PASSWORD` | | The mailbox of `ADDRESS`, IMAPS (port 993) |
-| `SIGNAL_BRIDGE_SMTP_HOST`, `_SMTP_USER`, `_SMTP_PASSWORD` | | SMTPS (implicit TLS) |
-| `SIGNAL_BRIDGE_SMTP_PORT` | `465` | Optional |
+| `SIGNAL_BRIDGE_SMTP_HOST`, `_SMTP_USER`, `_SMTP_PASSWORD` | | |
+| `SIGNAL_BRIDGE_SMTP_PORT` | `465` | Optional. 465 uses implicit TLS, any other port STARTTLS |
 | `SIGNAL_BRIDGE_TIMEZONE` | `Europe/Paris` | Optional, `UTC` by default. Used for the times shown in digests |
 | `SIGNAL_BRIDGE_POLL_INTERVAL` | `2m` | Optional |
 | `SIGNAL_BRIDGE_DATA_DIR` | `/data` | Optional. Holds `signal-cli/` (account keys) and `bridge.db` |

@@ -13,10 +13,17 @@ PROCESSED = "Processed"
 REJECTED = "Rejected"
 
 
+IMPLICIT_TLS_PORT = 465
+
+
 def send(settings: Settings, message: EmailMessage) -> None:
-    with smtplib.SMTP_SSL(
-        settings.smtp_host, settings.smtp_port, context=ssl.create_default_context()
-    ) as smtp:
+    context = ssl.create_default_context()
+    if settings.smtp_port == IMPLICIT_TLS_PORT:
+        smtp = smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, context=context)
+    else:
+        smtp = smtplib.SMTP(settings.smtp_host, settings.smtp_port)
+        smtp.starttls(context=context)
+    with smtp:
         smtp.login(settings.smtp_user, settings.smtp_password.get_secret_value())
         smtp.send_message(message)
 
