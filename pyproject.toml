@@ -1,0 +1,88 @@
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.uv-dynamic-versioning]
+pattern = "default-unprefixed"
+fallback-version = "0.0.0"
+
+[project]
+name = "signal-bridge"
+dynamic = ["version"]
+authors = [{ name = "Joachim Jablon", email = "ewjoachim@gmail.com" }]
+description = "Bridge a Signal group to an email-only member"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "mail-parser-reply>=1.3",
+    "pydantic-settings>=2.13",
+    "tzdata>=2025.2",
+]
+
+[dependency-groups]
+lint = [
+    "ruff>=0.13.0",
+    "ty>=0.0.1",
+    "prek>=0.2.0",
+    "zizmor>=1.0.0",
+]
+test = ["pytest>=8.4"]
+
+[tool.uv]
+package = true
+cache-keys = [
+    { file = "pyproject.toml" },
+    { git = { commit = true, tags = true } },
+]
+default-groups = ["lint", "test"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py314"
+
+[tool.ruff.lint]
+preview = true
+extend-select = [
+    "E",   # pycodestyle (Error)
+    "W",   # pycodestyle (Warning)
+    "F",   # pyflakes
+    "S",   # flake8-bandit
+    "UP",  # pyupgrade
+    "PL",  # pylint
+    "TID", # flake8-tidy-imports
+    "N",   # pep8-naming
+    "B",   # flake8-bugbear
+    "A",   # flake8-builtins
+    "SLF", # flake8-self
+    "T20", # flake8-print
+    "ICN", # flake8-import-conventions
+    "RUF", # ruff (RUFF specific rules)
+    "Q",   # flake8-quotes
+    "T10", # flake8-debugger
+    "I",   # isort
+]
+ignore = [
+    "too-many-return-statements", # https://docs.astral.sh/ruff/rules/too-many-return-statements/
+    "too-many-branches", # https://docs.astral.sh/ruff/rules/too-many-branches/
+    "too-many-arguments", # https://docs.astral.sh/ruff/rules/too-many-arguments/
+    "too-many-statements", # https://docs.astral.sh/ruff/rules/too-many-statements/
+    "error-suffix-on-exception-name",    # https://docs.astral.sh/ruff/rules/error-suffix-on-exception-name/
+    "magic-value-comparison", # https://docs.astral.sh/ruff/rules/magic-value-comparison/
+    "unspecified-encoding", # https://docs.astral.sh/ruff/rules/unspecified-encoding/
+    "no-self-use", # https://docs.astral.sh/ruff/rules/no-self-use/
+]
+fixable = ["ALL"]
+unfixable = ["print"]
+extend-ignore = [
+    "line-too-long", # line too long
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["assert"]
+# signal-cli is invoked with an argv list, never through a shell.
+"signal_bridge/signal_cli.py" = ["suspicious-subprocess-import", "subprocess-without-shell-equals-true", "start-process-with-partial-path"]
