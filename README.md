@@ -68,9 +68,10 @@ sc() {
 5. `sc setPin 'some-long-pin'`. Sets the registration lock, so nobody else can re-register the
    number.
 6. `sc updateProfile --given-name 'Email bridge'` (optionally add `--avatar /data/avatar.png`).
-7. From your phone, add the bot to each group. If it shows up as invited, accept with
-   `sc updateGroup -g <group id>`.
-8. `sc -o json listGroups` lists the group ids for the configuration.
+7. From your phone, save the bot's number as a contact and add it to each group.
+8. `sc receive` fetches the invitations, then `sc listGroups` shows each group's `Id:`, which
+   goes in the configuration. If a group shows `Active: false`, the bot is only invited: accept
+   with `sc updateGroup -g '<group id>'`.
 
 Signal rate-limits registrations, so do this once and keep `/data/signal-cli`.
 
