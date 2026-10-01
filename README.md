@@ -34,7 +34,7 @@ Then, for each bridged group, pick a slug (e.g. `band`, `test`):
 | `SIGNAL_BRIDGE_GROUPS__<slug>__EMAIL` | `marie@example.org` | The email-only member |
 | `SIGNAL_BRIDGE_GROUPS__<slug>__NAME` | `Marie` | Optional, defaults to the local part of the email. Used as the `[Name]` prefix |
 | `SIGNAL_BRIDGE_GROUPS__<slug>__FREQ` | `12h` | Optional. Maximum delay before a digest: `30m`, `6h`, `1d`… |
-| `SIGNAL_BRIDGE_GROUPS__<slug>__LOCALE` | `fr` | Optional, `en` by default. Language of the dates in digests |
+| `SIGNAL_BRIDGE_GROUPS__<slug>__LOCALE` | `fr` | Optional, `en` by default. Language of the emails (dates, durations, and the texts translated in `signal_bridge/locales/`) |
 | `SIGNAL_BRIDGE_GROUPS__<slug>__REPLY_TOKEN` | random | Secret. Only emails sent to `+<reply_token>` **and** from `EMAIL` are posted |
 
 Generate a reply token with `python -c "import secrets; print(secrets.token_urlsafe(12))"`.
@@ -156,6 +156,19 @@ To deploy right away instead of waiting for the timer: `systemctl start podman-a
 
 Keep a test group (you and the bot) bridged to a test mailbox, next to the real groups. That lets
 you try changes in production without bothering anyone.
+
+## Translations
+
+User-facing strings go through gettext, called explicitly as `translations(locale).gettext(…)`
+or `.ngettext(…)`. Translations live in `signal_bridge/locales/<lang>/LC_MESSAGES/signal_bridge.po`
+and are compiled in memory at startup, so there's no build step.
+
+prek extracts new strings into the `.pot` and the `.po` files on each run, and a test fails until
+every string is translated. To add a language:
+
+```bash
+uv run pybabel init -i signal_bridge/locales/signal_bridge.pot -d signal_bridge/locales -D signal_bridge -l de
+```
 
 ## Development
 

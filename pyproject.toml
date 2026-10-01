@@ -40,6 +40,10 @@ cache-keys = [
 ]
 default-groups = ["lint", "test"]
 
+[[tool.babel.mappings]]
+method = "python"
+pattern = "**.py"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

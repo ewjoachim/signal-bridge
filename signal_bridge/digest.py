@@ -4,12 +4,11 @@ from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 from zoneinfo import ZoneInfo
 
-from babel.dates import format_date
+from babel.dates import format_date, format_timedelta
 
 from signal_bridge.config import Group
+from signal_bridge.i18n import translations
 from signal_bridge.store import StoredMessage
-
-FOOTER = "Reply to this email to post in the group."
 
 
 def digest_due(pending: list[StoredMessage], freq: timedelta, now: datetime) -> bool:
@@ -23,6 +22,7 @@ def digest_due(pending: list[StoredMessage], freq: timedelta, now: datetime) -> 
 
 
 def render_body(group: Group, messages: list[StoredMessage], tz: ZoneInfo) -> str:
+    t = translations(group.locale)
     blocks = []
     current_day = None
     for message in messages:
@@ -30,7 +30,11 @@ def render_body(group: Group, messages: list[StoredMessage], tz: ZoneInfo) -> st
         if (day := format_date(when, "EEE d MMM", locale=group.locale)) != current_day:
             blocks.append(f"— {day} —")
             current_day = day
-        author = f"{group.name} (you)" if message.own else message.author
+        author = (
+            t.gettext("{name} (you)").format(name=group.name)
+            if message.own
+            else message.author
+        )
         lines = [f"{when:%H:%M} {author}"]
         if message.quote:
             lines.append(f"> {message.quote}")
@@ -38,7 +42,7 @@ def render_body(group: Group, messages: list[StoredMessage], tz: ZoneInfo) -> st
             lines.append(message.text)
         lines.extend(f"📎 {a.filename}" for a in message.attachments)
         blocks.append("\n".join(lines))
-    blocks.append(f"--\n{FOOTER}")
+    blocks.append("--\n" + t.gettext("Reply to this email to post in the group."))
     return "\n\n".join(blocks) + "\n"
 
 
@@ -72,7 +76,10 @@ def render_digest(
     read_attachment: Callable[[str], bytes | None],
 ) -> EmailMessage:
     count = sum(not m.own for m in messages)
-    subject = f"[{group_name}] {count} new message{'s' if count > 1 else ''}"
+    new_messages = translations(group.locale).ngettext(
+        "{count} new message", "{count} new messages", count
+    )
+    subject = f"[{group_name}] " + new_messages.format(count=count)
     email = base_email(
         address=address,
         display_name=group_name,
@@ -95,28 +102,32 @@ def render_digest(
     return email
 
 
-def human_duration(delta: timedelta) -> str:
-    for unit, seconds in (("day", 86400), ("hour", 3600), ("minute", 60)):
-        if delta.total_seconds() % seconds == 0:
-            count = int(delta.total_seconds() // seconds)
-            return f"{count} {unit}{'s' if count > 1 else ''}"
-    return str(delta)
-
-
 def render_welcome(*, address: str, reply_to: str, group: Group) -> EmailMessage:
+    t = translations(group.locale)
+    delay = format_timedelta(group.freq, locale=group.locale)
     body = (
-        f"Hi {group.name},\n\n"
-        "You are now connected to a Signal group by email.\n\n"
-        f"New messages from the group are sent to you together, at most every {human_duration(group.freq)} "
-        "(right away if someone mentions you).\n"
-        f'Reply to those emails, or to this one, to post in the group. Your messages appear as "[{group.name}] …".\n'
-        "Attachments work both ways.\n"
+        "\n\n".join(
+            [
+                t.gettext("Hi {name},").format(name=group.name),
+                t.gettext("You are now connected to a Signal group by email."),
+                t.gettext(
+                    "New messages from the group are sent to you together, at most every {delay} "
+                    "(right away if someone mentions you)."
+                ).format(delay=delay),
+                t.gettext(
+                    "Reply to those emails, or to this one, to post in the group. "
+                    'Your messages appear as "[{name}] …".'
+                ).format(name=group.name),
+                t.gettext("Attachments work both ways."),
+            ]
+        )
+        + "\n"
     )
     return base_email(
         address=address,
-        display_name="Signal group",
+        display_name=t.gettext("Signal group"),
         group=group,
         reply_to=reply_to,
-        subject="Signal group by email",
+        subject=t.gettext("Signal group by email"),
         body=body,
     )
