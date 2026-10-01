@@ -68,10 +68,14 @@ sc() {
 5. `sc setPin 'some-long-pin'`. Sets the registration lock, so nobody else can re-register the
    number.
 6. `sc updateProfile --given-name 'Email bridge'` (optionally add `--avatar /data/avatar.png`).
-7. From your phone, save the bot's number as a contact and add it to each group.
-8. `sc receive` fetches the invitations, then `sc listGroups` shows each group's `Id:`, which
-   goes in the configuration. If a group shows `Active: false`, the bot is only invited: accept
-   with `sc updateGroup -g '<group id>'`.
+7. Join each group through its invite link. On a phone, in the group settings, turn on the group
+   link with "Approve new members" off, then run
+   `sc joinGroup --uri 'https://signal.group/#…'` (no backslash before `#` inside quotes).
+   Turn the link off afterwards. Adding the bot as a member from a phone only sends it an
+   invitation, which signal-cli 0.14.8 fails to accept ("Cannot find service ID for self to
+   accept invite").
+8. `sc listGroups` shows each group's `Id:`, which goes in the configuration. It should show
+   `Active: true`.
 
 Signal rate-limits registrations, so do this once and keep `/data/signal-cli`.
 
