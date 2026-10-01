@@ -1,0 +1,61 @@
+
+msgid ""
+msgstr ""
+"Project-Id-Version:  signal-bridge\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-10-02 01:18+0200\n"
+"PO-Revision-Date: 2026-10-02 01:18+0200\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: fr\n"
+"Language-Team: fr <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+msgid "Attachments work both ways."
+msgstr "Les pièces jointes fonctionnent dans les deux sens."
+
+#, python-brace-format
+msgid "Hi {name},"
+msgstr "Bonjour {name},"
+
+#, python-brace-format
+msgid ""
+"New messages from the group are sent to you together, at most every "
+"{delay} (right away if someone mentions you)."
+msgstr ""
+"Les nouveaux messages du groupe vous sont envoyés regroupés, avec au plus"
+" {delay} d'attente (immédiatement si quelqu'un vous mentionne)."
+
+msgid "Reply to this email to post in the group."
+msgstr "Répondez à cet e-mail pour écrire dans le groupe."
+
+#, python-brace-format
+msgid ""
+"Reply to those emails, or to this one, to post in the group. Your "
+"messages appear as \"[{name}] …\"."
+msgstr ""
+"Répondez à ces e-mails, ou à celui-ci, pour écrire dans le groupe. Vos "
+"messages y apparaissent sous la forme « [{name}] … »."
+
+msgid "Signal group"
+msgstr "Groupe Signal"
+
+msgid "Signal group by email"
+msgstr "Groupe Signal par e-mail"
+
+msgid "You are now connected to a Signal group by email."
+msgstr "Vous êtes maintenant relié(e) à un groupe Signal par e-mail."
+
+#, python-brace-format
+msgid "{count} new message"
+msgid_plural "{count} new messages"
+msgstr[0] "{count} nouveau message"
+msgstr[1] "{count} nouveaux messages"
+
+#, python-brace-format
+msgid "{name} (you)"
+msgstr "{name} (vous)"
+

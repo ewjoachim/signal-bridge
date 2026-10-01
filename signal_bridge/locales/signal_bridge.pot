@@ -1,0 +1,41 @@
+msgid "Attachments work both ways."
+msgstr ""
+
+#, python-brace-format
+msgid "Hi {name},"
+msgstr ""
+
+#, python-brace-format
+msgid ""
+"New messages from the group are sent to you together, at most every "
+"{delay} (right away if someone mentions you)."
+msgstr ""
+
+msgid "Reply to this email to post in the group."
+msgstr ""
+
+#, python-brace-format
+msgid ""
+"Reply to those emails, or to this one, to post in the group. Your "
+"messages appear as \"[{name}] …\"."
+msgstr ""
+
+msgid "Signal group"
+msgstr ""
+
+msgid "Signal group by email"
+msgstr ""
+
+msgid "You are now connected to a Signal group by email."
+msgstr ""
+
+#, python-brace-format
+msgid "{count} new message"
+msgid_plural "{count} new messages"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-brace-format
+msgid "{name} (you)"
+msgstr ""
+

@@ -3,6 +3,7 @@ repos:
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
+        exclude: ^signal_bridge/locales/  # written by pybabel
       - id: check-yaml
       - id: check-toml
       - id: check-added-large-files
@@ -43,6 +44,20 @@ repos:
         files: \.github/(workflows/.*|dependabot\.ya?ml)$
         language: system
         require_serial: true
+
+      - id: babel extract
+        name: babel extract
+        entry: uv run pybabel -q extract -F pyproject.toml --omit-header --no-location --sort-output -o signal_bridge/locales/signal_bridge.pot signal_bridge
+        language: system
+        files: ^signal_bridge/
+        pass_filenames: false
+
+      - id: babel update
+        name: babel update
+        entry: uv run pybabel -q update -i signal_bridge/locales/signal_bridge.pot -d signal_bridge/locales -D signal_bridge --ignore-pot-creation-date
+        language: system
+        files: ^signal_bridge/
+        pass_filenames: false
 
       - id: pytest
         name: pytest
