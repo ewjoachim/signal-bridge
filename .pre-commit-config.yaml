@@ -59,9 +59,8 @@ repos:
         files: ^signal_bridge/
         pass_filenames: false
 
-      - id: pytest
-        name: pytest
-        entry: uv run pytest -q
+      - id: renovate config
+        name: renovate config
+        entry: uv run check-jsonschema --builtin-schema vendor.renovate
+        files: ^\.github/renovate\.json5$
         language: system
-        types: [python]
-        pass_filenames: false
