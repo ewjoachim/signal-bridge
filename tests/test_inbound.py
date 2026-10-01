@@ -85,3 +85,30 @@ def test_attachments():
     inbound = parse_inbound(email)
     assert inbound.text == "Here is the score"
     assert inbound.files == (InboundFile(filename="score.pdf", data=b"%PDF"),)
+
+
+def test_strips_quote_with_unrecognized_attribution():
+    body = (
+        "meuh\n\n"
+        "Le 2026-10-02T01:15:09.000+02:00, Test Bridge <bridge@jablon.fr> a écrit :\n\n"
+        "> — ven. 2 oct. —\n>\n> 01:12 Paul\n> coin\n>\n> --\n"
+        "> Reply to this email to post in the group.\n"
+    )
+    assert parse_inbound(reply(body)).text == "meuh"
+
+
+def test_strips_quote_with_wrapped_attribution():
+    body = "meuh\n\nOn Fri, Oct 2, 2026 at 1:15 AM Test Bridge\n<bridge@jablon.fr> wrote:\n> coin\n"
+    assert parse_inbound(reply(body)).text == "meuh"
+
+
+def test_keeps_text_ending_with_colon_without_quote():
+    assert (
+        parse_inbound(reply("Here is the plan:\n- rehearse\n- eat")).text
+        == "Here is the plan:\n- rehearse\n- eat"
+    )
+
+
+def test_keeps_inline_quotes():
+    body = "> Are you coming?\nYes!\n"
+    assert parse_inbound(reply(body)).text == "> Are you coming?\nYes!"
