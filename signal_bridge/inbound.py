@@ -12,6 +12,7 @@ from signal_bridge.config import Group
 
 RECIPIENT_HEADERS = ("To", "Cc", "Delivered-To", "X-Original-To")
 REPLY_LANGUAGES = ["en", "fr", "de", "es", "it", "nl"]
+ATTRIBUTION_MAX_LINES = 4
 
 
 @dataclass(frozen=True)
@@ -71,6 +72,22 @@ def html_to_text(html: str) -> str:
     return "".join(extractor.parts)
 
 
+def strip_trailing_quote(text: str) -> str:
+    """Remove a trailing `>` quote and its "X wrote:" line, whatever the language or date format."""
+    lines = text.rstrip().split("\n")
+    end = len(lines)
+    while end and (lines[end - 1].startswith(">") or not lines[end - 1].strip()):
+        end -= 1
+    if not any(line.startswith(">") for line in lines[end:]):
+        return text.strip()
+    start = end
+    while start and lines[start - 1].strip() and end - start < ATTRIBUTION_MAX_LINES:
+        start -= 1
+    if end > start and lines[end - 1].rstrip().endswith(":"):
+        end = start
+    return "\n".join(lines[:end]).strip()
+
+
 def parse_inbound(email: EmailMessage) -> Inbound:
     body = email.get_body(preferencelist=("plain", "html"))
     text = ""
@@ -78,9 +95,8 @@ def parse_inbound(email: EmailMessage) -> Inbound:
         content = body.get_content()
         if body.get_content_subtype() == "html":
             content = html_to_text(content)
-        text = (
-            EmailReplyParser(languages=REPLY_LANGUAGES).parse_reply(text=content) or ""
-        ).strip()
+        reply = EmailReplyParser(languages=REPLY_LANGUAGES).parse_reply(text=content)
+        text = strip_trailing_quote(reply or "")
 
     files = []
     for part in email.walk():
