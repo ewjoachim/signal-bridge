@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 import pytest
+from pydantic import ValidationError
 
 from signal_bridge.config import Settings
 
@@ -19,6 +20,7 @@ BASE_ENV = {
     "SIGNAL_BRIDGE_GROUPS__BAND__EMAIL": "marie@example.org",
     "SIGNAL_BRIDGE_GROUPS__BAND__NAME": "Marie",
     "SIGNAL_BRIDGE_GROUPS__BAND__FREQ": "1d",
+    "SIGNAL_BRIDGE_GROUPS__BAND__LOCALE": "fr_FR",
     "SIGNAL_BRIDGE_GROUPS__BAND__REPLY_TOKEN": "tok1",
     "SIGNAL_BRIDGE_GROUPS__TEST_GROUP__GROUP_ID": "def=",
     "SIGNAL_BRIDGE_GROUPS__TEST_GROUP__EMAIL": "test@example.org",
@@ -36,8 +38,16 @@ def settings(monkeypatch) -> Settings:
 def test_groups(settings):
     assert set(settings.groups) == {"band", "test_group"}
     band, test = settings.groups["band"], settings.groups["test_group"]
-    assert (band.name, band.freq) == ("Marie", timedelta(days=1))
-    assert (test.name, test.freq) == ("test", timedelta(hours=12))
+    assert (band.name, band.freq, band.locale) == ("Marie", timedelta(days=1), "fr_FR")
+    assert (test.name, test.freq, test.locale) == ("test", timedelta(hours=12), "en")
+
+
+def test_unknown_locale(monkeypatch):
+    for key, value in BASE_ENV.items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("SIGNAL_BRIDGE_GROUPS__BAND__LOCALE", "xx")
+    with pytest.raises(ValidationError, match="unknown locale"):
+        Settings()
 
 
 def test_reply_address(settings):

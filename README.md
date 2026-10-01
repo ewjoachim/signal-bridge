@@ -34,6 +34,7 @@ Then, for each bridged group, pick a slug (e.g. `band`, `test`):
 | `SIGNAL_BRIDGE_GROUPS__<slug>__EMAIL` | `marie@example.org` | The email-only member |
 | `SIGNAL_BRIDGE_GROUPS__<slug>__NAME` | `Marie` | Optional, defaults to the local part of the email. Used as the `[Name]` prefix |
 | `SIGNAL_BRIDGE_GROUPS__<slug>__FREQ` | `12h` | Optional. Maximum delay before a digest: `30m`, `6h`, `1d`… |
+| `SIGNAL_BRIDGE_GROUPS__<slug>__LOCALE` | `fr` | Optional, `en` by default. Language of the dates in digests |
 | `SIGNAL_BRIDGE_GROUPS__<slug>__REPLY_TOKEN` | random | Secret. Only emails sent to `+<reply_token>` **and** from `EMAIL` are posted |
 
 Generate a reply token with `python -c "import secrets; print(secrets.token_urlsafe(12))"`.

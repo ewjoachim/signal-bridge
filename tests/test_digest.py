@@ -2,7 +2,7 @@ from dataclasses import replace
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from signal_bridge.digest import digest_due, render_digest, render_welcome
+from signal_bridge.digest import digest_due, render_body, render_digest, render_welcome
 from signal_bridge.events import Attachment
 from signal_bridge.store import StoredMessage
 
@@ -82,3 +82,10 @@ def test_render_welcome(group):
     )
     assert email["Reply-To"] == "bridge+s3cret@example.org"
     assert "at most every 12 hours" in email.get_content()
+
+
+def test_localized_dates(group):
+    body = render_body(
+        group.model_copy(update={"locale": "fr"}), [message(0, "Salut")], PARIS
+    )
+    assert body.startswith("— mar. 6 oct. —\n\n14:32 Paul\nSalut\n")

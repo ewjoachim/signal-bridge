@@ -4,6 +4,8 @@ from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
 from zoneinfo import ZoneInfo
 
+from babel.dates import format_date
+
 from signal_bridge.config import Group
 from signal_bridge.store import StoredMessage
 
@@ -25,7 +27,7 @@ def render_body(group: Group, messages: list[StoredMessage], tz: ZoneInfo) -> st
     current_day = None
     for message in messages:
         when = datetime.fromtimestamp(message.ts / 1000, tz=tz)
-        if (day := when.strftime("%a %-d %b")) != current_day:
+        if (day := format_date(when, "EEE d MMM", locale=group.locale)) != current_day:
             blocks.append(f"— {day} —")
             current_day = day
         author = f"{group.name} (you)" if message.own else message.author

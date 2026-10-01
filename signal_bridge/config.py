@@ -3,6 +3,7 @@ from datetime import timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from babel import Locale, UnknownLocaleError
 from pydantic import BaseModel, ConfigDict, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -24,9 +25,19 @@ class Group(BaseModel):
     email: str
     name: str = ""
     freq: timedelta = timedelta(hours=12)
+    locale: str = "en"
     reply_token: SecretStr
 
     _parse_freq = field_validator("freq", mode="before")(parse_duration)
+
+    @field_validator("locale")
+    @classmethod
+    def check_locale(cls, value: str) -> str:
+        try:
+            Locale.parse(value)
+        except UnknownLocaleError as exc:
+            raise ValueError(str(exc)) from exc
+        return value
 
     @model_validator(mode="before")
     @classmethod
