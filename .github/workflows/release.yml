@@ -1,0 +1,144 @@
+name: Release
+
+# Prod image path: build + push the image to GHCR.
+#
+# Continuous deployment: every push to main mints the next calendar version, cuts
+# a GitHub release with auto-generated notes, then builds + pushes the image
+# tagged with that version (and `latest`). A release published from the GitHub UI
+# builds + pushes the existing tag without re-bumping.
+#
+# The release job runs *before* the build on purpose, so a real PEP-440 version
+# exists by build time: a plain main build would otherwise fall back to
+# metadata-action's "latest", which uv-dynamic-versioning rejects. BUILD_VERSION
+# is read from the minted version directly rather than metadata-action's
+# arbitrated output.
+on:
+  release:
+    types: [published]
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+permissions: {}
+
+# Serialize releases: the version bump reads the tag list and takes max+1, so two
+# runs racing on main would compute the same number. Queue, never cancel —
+# cancelling mid-build could leave a half-published release/tag behind.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # On every push to main: bump to the next year.month.N version, cut a GitHub
+  # release with auto-generated notes, then fall through to build-and-push.
+  release:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+
+    steps:
+      # No checkout: the tag list comes from the API, so the job needs neither a
+      # working tree nor the full git history a local `git tag` would require.
+      - name: Compute next version
+        id: bump
+        shell: python
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          import datetime, os, re, subprocess
+
+          # Calendar versioning: year.month.release-number-within-month.
+          now = datetime.datetime.now(datetime.timezone.utc)
+          prefix = f"{now.year}.{now.month}."
+
+          # Tag list from the API, not a local `git tag`, so the job needs no
+          # checkout and no history.
+          tags = subprocess.run(
+              ["gh", "api", "--paginate",
+               f"repos/{os.environ['REPO']}/tags", "--jq", ".[].name"],
+              capture_output=True, text=True, check=True,
+          ).stdout.split()
+
+          # Look at *every* tag for this month and take the highest number, so
+          # multiple tags on the same commit (e.g. 2026.6.4 and 2026.6.5) still
+          # bump to the next free number rather than colliding.
+          numbers = [
+              int(m.group(1))
+              for tag in tags
+              if (m := re.fullmatch(rf"{re.escape(prefix)}(\d+)", tag))
+          ]
+          version = f"{prefix}{max(numbers, default=0) + 1}"
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"version={version}\n")
+          print(f"Next version: {version}")
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Without this gh resolves the repo from the local git remote, which
+          # doesn't exist in this checkout-free job.
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.bump.outputs.version }}
+        run: |
+          gh release create "$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "$VERSION" \
+            --generate-notes
+
+  build-and-push:
+    needs: [release]
+    # Runs after the release job on push, and also on a `release` event
+    # where that job is skipped — always() keeps a skipped dependency from
+    # blocking this job.
+    if: >-
+      always()
+      && needs.release.result != 'failure'
+      && needs.release.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'release' || github.event_name == 'push'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ewjoachim
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=${{ needs.release.outputs.version }},enable=${{ needs.release.outputs.version != '' }}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: ${{ github.event_name == 'release' || github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BUILD_VERSION=${{ needs.release.outputs.version || steps.meta.outputs.version || '0.0.0' }}

@@ -1,0 +1,26 @@
+{
+  extends: ["config:recommended", ":enablePreCommit", "docker:pinDigests"],
+  labels: ["deps"],
+  lockFileMaintenance: {
+    enabled: true,
+    automerge: true,
+  },
+  customManagers: [
+    {
+      customType: "regex",
+      managerFilePatterns: ["/(^|/)Dockerfile$/"],
+      matchStrings: [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+ARG \\w+=(?<currentValue>\\S+)",
+      ],
+      extractVersionTemplate: "^v(?<version>.*)$",
+    },
+  ],
+  packageRules: [
+    {
+      groupName: "all dependencies",
+      groupSlug: "all",
+      matchPackageNames: ["*"],
+    },
+  ],
+  automerge: true,
+}
