@@ -114,6 +114,8 @@ class Bridge:
             pending = self.store.pending(group.group_id)
             if not digest_due(pending, group.freq, now):
                 continue
+            year, week_number, _ = now.isocalendar()
+            week = f"{year}-W{week_number:02}"
             email = render_digest(
                 address=self.settings.address,
                 reply_to=self.settings.reply_address(group),
@@ -122,8 +124,10 @@ class Bridge:
                 messages=pending,
                 tz=self.settings.timezone,
                 read_attachment=self.read_attachment,
+                thread=self.store.thread(group.group_id, week),
             )
             mail.send(self.settings, email)
+            self.store.add_to_thread(group.group_id, week, str(email["Message-ID"]))
             self.store.mark_digested(pending)
             for message in pending:
                 for attachment in message.attachments:

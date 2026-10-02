@@ -51,3 +51,14 @@ def test_names_and_welcome():
     assert store.welcomed_email(GROUP_ID) is None
     store.set_welcomed_email(GROUP_ID, "marie@example.org")
     assert store.welcomed_email(GROUP_ID) == "marie@example.org"
+
+
+def test_threads_are_weekly():
+    store = Store(":memory:")
+    store.add_to_thread(GROUP_ID, "2026-W40", "<a@x>")
+    store.add_to_thread(GROUP_ID, "2026-W40", "<b@x>")
+    assert store.thread(GROUP_ID, "2026-W40") == ["<a@x>", "<b@x>"]
+    assert store.thread(GROUP_ID, "2026-W41") == []
+    store.add_to_thread(GROUP_ID, "2026-W41", "<c@x>")
+    assert store.thread(GROUP_ID, "2026-W41") == ["<c@x>"]
+    assert store.thread(GROUP_ID, "2026-W40") == []

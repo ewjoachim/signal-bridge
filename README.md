@@ -4,6 +4,7 @@ Bridges Signal groups to members who only have email.
 
 - **Signal → email:** group messages are batched into a digest email, sent at most every `freq`
   (12h by default), or right away when someone @mentions the bot. Attachments are included.
+  Each week's digests form one email thread.
 - **Email → Signal:** replying to a digest posts the reply into the group as `[Name] …`, with the
   quoted text stripped. Attachments work too.
 
