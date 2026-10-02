@@ -1,9 +1,8 @@
 import dataclasses
 from collections.abc import Mapping
 
-from signal_bridge import config
+from signal_bridge import config, models
 
-MENTION_PLACEHOLDER = "￼"
 QUOTE_MAX_LENGTH = 200
 
 
@@ -45,103 +44,105 @@ type Event = NewMessage | Edit | Delete
 
 def render_mentions(
     text: str,
-    mentions: list[dict],
+    mentions: tuple[models.Mention, ...],
     account: str,
     bot_name: str,
     names: Mapping[str, str],
 ) -> str:
-    for mention in sorted(mentions, key=lambda m: m["start"], reverse=True):
-        if is_bot(mention, account):
-            name = bot_name
-        else:
-            name = names.get(mention.get("uuid", ""), "someone")
-        start, end = mention["start"], mention["start"] + mention["length"]
-        text = f"{text[:start]}@{name}{text[end:]}"
+    for mention in sorted(mentions, key=lambda m: m.start, reverse=True):
+        name = (
+            bot_name
+            if is_bot(mention, account)
+            else names.get(mention.uuid or "", "someone")
+        )
+        text = f"{text[: mention.start]}@{name}{text[mention.start + mention.length :]}"
     return text
 
 
-def is_bot(mention: dict, account: str) -> bool:
-    return account in {mention.get("number"), mention.get("name")}
+def is_bot(mention: models.Mention, account: str) -> bool:
+    return account in {mention.number, mention.name}
 
 
-def parse_attachment(raw: dict) -> Attachment:
-    content_type = raw.get("contentType") or "application/octet-stream"
-    filename = raw.get("filename") or raw["id"]
-    return Attachment(filename=filename, content_type=content_type, id=raw["id"])
+def find_group(
+    data: models.DataMessage, groups: Mapping[str, config.Group]
+) -> config.Group | None:
+    if data.group_info is None or data.group_info.group_id is None:
+        return None
+    return groups.get(data.group_info.group_id)
+
+
+def parse_attachment(attachment: models.Attachment) -> Attachment | None:
+    if attachment.id is None:
+        return None
+    return Attachment(
+        filename=attachment.filename or attachment.id,
+        content_type=attachment.content_type or "application/octet-stream",
+        id=attachment.id,
+    )
+
+
+def render_quote(
+    quote: models.Quote, account: str, group: config.Group, names: Mapping[str, str]
+) -> str:
+    author = (
+        group.name
+        if quote.author_number == account
+        else names.get(quote.author_uuid or "", "someone")
+    )
+    text = render_mentions(quote.text or "", quote.mentions, account, group.name, names)
+    if len(text) > QUOTE_MAX_LENGTH:
+        text = text[:QUOTE_MAX_LENGTH] + "…"
+    return f"{author}: {text}"
 
 
 def parse_envelope(
-    raw: dict,
+    received: models.Received,
     account: str,
     groups: Mapping[str, config.Group],
     names: Mapping[str, str],
 ) -> Event | None:
-    envelope = raw.get("envelope", {})
-    author_uuid = envelope.get("sourceUuid")
+    envelope = received.envelope
+    author_uuid = envelope.source_uuid
     if not author_uuid:
         return None
 
-    if edit := envelope.get("editMessage"):
-        data = edit.get("dataMessage", {})
-        group = groups.get(data.get("groupInfo", {}).get("groupId", ""))
+    if (edit := envelope.edit_message) and edit.data_message:
+        group = find_group(edit.data_message, groups)
         if group is None:
             return None
         text = render_mentions(
-            data.get("message") or "",
-            data.get("mentions", []),
+            edit.data_message.message or "",
+            edit.data_message.mentions,
             account,
             group.name,
             names,
         )
-        return Edit(author_uuid=author_uuid, ts=edit["targetSentTimestamp"], text=text)
+        return Edit(author_uuid=author_uuid, ts=edit.target_sent_timestamp, text=text)
 
-    data = envelope.get("dataMessage")
-    if not data:
-        return None
-    group_info = data.get("groupInfo", {})
-    group = groups.get(group_info.get("groupId", ""))
-    if group is None:
+    data = envelope.data_message
+    if data is None or (group := find_group(data, groups)) is None:
         return None
 
-    if delete := data.get("remoteDelete"):
-        return Delete(author_uuid=author_uuid, ts=delete["timestamp"])
+    if data.remote_delete:
+        return Delete(author_uuid=author_uuid, ts=data.remote_delete.timestamp)
 
-    attachments = tuple(parse_attachment(a) for a in data.get("attachments", []))
-    if not data.get("message") and not attachments:
+    attachments = tuple(a for raw in data.attachments if (a := parse_attachment(raw)))
+    if not data.message and not attachments:
         return None
-
-    mentions = data.get("mentions", [])
-    text = render_mentions(
-        data.get("message") or "", mentions, account, group.name, names
-    )
-
-    quote = None
-    if raw_quote := data.get("quote"):
-        quoted_author = names.get(raw_quote.get("authorUuid", ""), "someone")
-        if raw_quote.get("authorNumber") == account:
-            quoted_author = group.name
-        quoted_text = render_mentions(
-            raw_quote.get("text") or "",
-            raw_quote.get("mentions", []),
-            account,
-            group.name,
-            names,
-        )
-        if len(quoted_text) > QUOTE_MAX_LENGTH:
-            quoted_text = quoted_text[:QUOTE_MAX_LENGTH] + "…"
-        quote = f"{quoted_author}: {quoted_text}"
 
     return NewMessage(
         group_id=group.group_id,
-        group_name=group_info.get("groupName"),
+        group_name=data.group_info.group_name if data.group_info else None,
         author_uuid=author_uuid,
-        author=envelope.get("sourceName")
+        author=envelope.source_name
         or names.get(author_uuid)
-        or envelope.get("sourceNumber")
+        or envelope.source_number
         or "someone",
-        ts=data["timestamp"],
-        text=text,
-        quote=quote,
+        ts=data.timestamp,
+        text=render_mentions(
+            data.message or "", data.mentions, account, group.name, names
+        ),
+        quote=render_quote(data.quote, account, group, names) if data.quote else None,
         attachments=attachments,
-        mentions_bot=any(is_bot(m, account) for m in mentions),
+        mentions_bot=any(is_bot(m, account) for m in data.mentions),
     )

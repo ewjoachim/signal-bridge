@@ -1,5 +1,6 @@
 import datetime
 import email.message
+import json
 import logging
 import mimetypes
 import pathlib
@@ -55,8 +56,19 @@ class Bridge:
             logger.info("Sent welcome email to %s", group.email)
 
     def receive(self) -> None:
-        for raw in self.signal.receive():
-            self.store.ingest(raw, self.settings.account, self.groups_by_id)
+        # signal-cli acknowledges what it prints: a line we fail on is never redelivered.
+        for line in self.signal.receive():
+            try:
+                self.store.ingest(
+                    json.loads(line), self.settings.account, self.groups_by_id
+                )
+            except Exception:
+                logger.exception(
+                    "Could not process an envelope, saved to %s",
+                    self.settings.unparsed_path,
+                )
+                with self.settings.unparsed_path.open("a") as unparsed:
+                    unparsed.write(line.rstrip("\n") + "\n")
         HEARTBEAT.touch()
 
     def forward_emails(self) -> None:

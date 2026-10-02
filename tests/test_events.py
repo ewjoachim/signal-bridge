@@ -1,11 +1,14 @@
-from signal_bridge import config, events
+from signal_bridge import config, events, models
 
 from . import conftest
 
 
 def parse(raw: dict, group: config.Group, names: dict | None = None):
     return events.parse_envelope(
-        raw, conftest.ACCOUNT, {group.group_id: group}, names or {}
+        models.Received.model_validate(raw),
+        conftest.ACCOUNT,
+        {group.group_id: group},
+        names or {},
     )
 
 

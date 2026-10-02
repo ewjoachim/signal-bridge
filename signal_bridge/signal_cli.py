@@ -1,5 +1,4 @@
 import dataclasses
-import json
 import logging
 import pathlib
 import subprocess
@@ -45,7 +44,7 @@ class SignalCli:
             logger.info("signal-cli %s: %s", args[0], result.stderr.strip())
         return result.stdout
 
-    def receive(self) -> list[dict]:
+    def receive(self) -> list[str]:
         output = self._run(
             "receive",
             "--timeout",
@@ -54,7 +53,7 @@ class SignalCli:
             "--ignore-stickers",
             "--ignore-avatars",
         )
-        return [json.loads(line) for line in output.splitlines() if line.strip()]
+        return [line for line in output.splitlines() if line.strip()]
 
     def send_to_group(
         self, group_id: str, text: str, attachments: Iterable[pathlib.Path] = ()
