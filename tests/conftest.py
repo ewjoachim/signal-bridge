@@ -1,16 +1,18 @@
+import pydantic
 import pytest
-from pydantic import SecretStr
 
-from signal_bridge.config import Group
+from signal_bridge import config
 
 ACCOUNT = "+33199000000"
 GROUP_ID = "Z3JvdXAtaWQ="
 
 
 @pytest.fixture
-def group() -> Group:
-    return Group(
-        group_id=GROUP_ID, email="marie@example.org", reply_token=SecretStr("s3cret")
+def group() -> config.Group:
+    return config.Group(
+        group_id=GROUP_ID,
+        email="marie@example.org",
+        reply_token=pydantic.SecretStr("s3cret"),
     )
 
 

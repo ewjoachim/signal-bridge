@@ -1,32 +1,26 @@
+import datetime
+import email.message
 import logging
 import mimetypes
+import pathlib
 import tempfile
 import time
 import traceback
-from datetime import datetime
-from email.message import EmailMessage
-from importlib.metadata import version
-from pathlib import Path
+from importlib import metadata
 
-from signal_bridge import mail
-from signal_bridge.config import Group, Settings
-from signal_bridge.digest import digest_due, render_digest, render_welcome
-from signal_bridge.events import Attachment
-from signal_bridge.inbound import Inbound, match_group, parse_inbound
-from signal_bridge.signal_cli import SignalCli
-from signal_bridge.store import Store
+from signal_bridge import config, digest, events, inbound, mail, signal_cli, store
 
 logger = logging.getLogger("signal_bridge")
 
-HEARTBEAT = Path("/tmp/signal-bridge.heartbeat")  # ruff: ignore[hardcoded-temp-file] -- read by the image HEALTHCHECK
+HEARTBEAT = pathlib.Path("/tmp/signal-bridge.heartbeat")  # ruff: ignore[hardcoded-temp-file] -- read by the image HEALTHCHECK
 ALERT_AFTER_FAILURES = 5
 
 
 class Bridge:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: config.Settings) -> None:
         self.settings = settings
-        self.signal = SignalCli(settings.account, settings.signal_cli_dir)
-        self.store = Store(settings.db_path)
+        self.signal = signal_cli.SignalCli(settings.account, settings.signal_cli_dir)
+        self.store = store.Store(settings.db_path)
         self.groups_by_id = {
             group.group_id: group for group in settings.groups.values()
         }
@@ -53,7 +47,7 @@ class Bridge:
             reply_to = self.settings.reply_address(group)
             mail.send(
                 self.settings,
-                render_welcome(
+                digest.render_welcome(
                     address=self.settings.address, reply_to=reply_to, group=group
                 ),
             )
@@ -67,56 +61,56 @@ class Bridge:
 
     def forward_emails(self) -> None:
         with mail.mailbox(self.settings) as box:
-            for uid, email in box.messages():
-                group = match_group(
-                    email, self.settings.address, self.groups_by_id.values()
+            for uid, msg in box.messages():
+                group = inbound.match_group(
+                    msg, self.settings.address, self.groups_by_id.values()
                 )
                 if group is None:
-                    logger.warning("Rejecting email from %s", email.get("From"))
+                    logger.warning("Rejecting email from %s", msg.get("From"))
                     box.move(uid, mail.REJECTED)
                     continue
-                inbound = parse_inbound(email)
-                if inbound.text or inbound.files:
-                    self.post(group, inbound)
+                reply = inbound.parse_inbound(msg)
+                if reply.text or reply.files:
+                    self.post(group, reply)
                 box.move(uid, mail.PROCESSED)
 
-    def post(self, group: Group, inbound: Inbound) -> None:
+    def post(self, group: config.Group, reply: inbound.Inbound) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             paths = []
-            for index, file in enumerate(inbound.files):
-                path = Path(tmp) / str(index) / file.filename
+            for index, file in enumerate(reply.files):
+                path = pathlib.Path(tmp) / str(index) / file.filename
                 path.parent.mkdir()
                 path.write_bytes(file.data)
                 paths.append(path)
             self.signal.send_to_group(
-                group.group_id, f"[{group.name}] {inbound.text}".rstrip(), paths
+                group.group_id, f"[{group.name}] {reply.text}".rstrip(), paths
             )
         attachments = tuple(
-            Attachment(
+            events.Attachment(
                 filename=f.filename,
                 content_type=mimetypes.guess_type(f.filename)[0] or "",
             )
-            for f in inbound.files
+            for f in reply.files
         )
         self.store.add_own_message(
             group.group_id,
             group.name,
             time.time_ns() // 1_000_000,
-            inbound.text,
+            reply.text,
             attachments,
         )
         logger.info("Posted email from %s to the group", group.email)
 
     def send_digests(self) -> None:
-        now = datetime.now(self.settings.timezone)
+        now = datetime.datetime.now(self.settings.timezone)
         names = self.store.names()
         for slug, group in self.settings.groups.items():
             pending = self.store.pending(group.group_id)
-            if not digest_due(pending, group.freq, now):
+            if not digest.digest_due(pending, group.freq, now):
                 continue
             year, week_number, _ = now.isocalendar()
             week = f"{year}-W{week_number:02}"
-            email = render_digest(
+            msg = digest.render_digest(
                 address=self.settings.address,
                 reply_to=self.settings.reply_address(group),
                 group=group,
@@ -126,8 +120,8 @@ class Bridge:
                 read_attachment=self.read_attachment,
                 thread=self.store.thread(group.group_id, week),
             )
-            mail.send(self.settings, email)
-            self.store.add_to_thread(group.group_id, week, str(email["Message-ID"]))
+            mail.send(self.settings, msg)
+            self.store.add_to_thread(group.group_id, week, str(msg["Message-ID"]))
             self.store.mark_digested(pending)
             for message in pending:
                 for attachment in message.attachments:
@@ -142,13 +136,13 @@ class Bridge:
         return path.read_bytes() if path.exists() else None
 
     def alert(self, failures: list[str]) -> None:
-        email = EmailMessage()
-        email["From"] = self.settings.address
-        email["To"] = self.settings.admin_email
-        email["Subject"] = "signal-bridge is failing"
-        email.set_content("\n\n".join(failures))
+        msg = email.message.EmailMessage()
+        msg["From"] = self.settings.address
+        msg["To"] = self.settings.admin_email
+        msg["Subject"] = "signal-bridge is failing"
+        msg.set_content("\n\n".join(failures))
         try:
-            mail.send(self.settings, email)
+            mail.send(self.settings, msg)
         except Exception:
             logger.exception("Could not send the alert email")
 
@@ -157,10 +151,10 @@ def main() -> None:
     logging.basicConfig(
         level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
     )
-    settings = Settings()
+    settings = config.Settings()
     logger.info(
         "signal-bridge %s, bridging: %s",
-        version("signal-bridge"),
+        metadata.version("signal-bridge"),
         ", ".join(settings.groups),
     )
     bridge = Bridge(settings)

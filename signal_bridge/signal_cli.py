@@ -1,9 +1,9 @@
+import dataclasses
 import json
 import logging
+import pathlib
 import subprocess
 from collections.abc import Iterable
-from dataclasses import dataclass
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -12,10 +12,10 @@ class SignalCliError(Exception):
     pass
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class SignalCli:
     account: str
-    data_dir: Path
+    data_dir: pathlib.Path
 
     def _run(self, *args: str, stdin: str | None = None) -> str:
         argv = [
@@ -57,12 +57,12 @@ class SignalCli:
         return [json.loads(line) for line in output.splitlines() if line.strip()]
 
     def send_to_group(
-        self, group_id: str, text: str, attachments: Iterable[Path] = ()
+        self, group_id: str, text: str, attachments: Iterable[pathlib.Path] = ()
     ) -> None:
         args = ["send", "-g", group_id, "--message-from-stdin"]
         if paths := [str(path) for path in attachments]:
             args += ["-a", *paths]
         self._run(*args, stdin=text)
 
-    def attachment_path(self, attachment_id: str) -> Path:
-        return self.data_dir / "attachments" / Path(attachment_id).name
+    def attachment_path(self, attachment_id: str) -> pathlib.Path:
+        return self.data_dir / "attachments" / pathlib.Path(attachment_id).name

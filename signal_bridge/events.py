@@ -1,20 +1,20 @@
+import dataclasses
 from collections.abc import Mapping
-from dataclasses import dataclass
 
-from signal_bridge.config import Group
+from signal_bridge import config
 
 MENTION_PLACEHOLDER = "￼"
 QUOTE_MAX_LENGTH = 200
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Attachment:
     filename: str
     content_type: str
     id: str | None = None
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class NewMessage:
     group_id: str
     group_name: str | None
@@ -27,14 +27,14 @@ class NewMessage:
     mentions_bot: bool
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Edit:
     author_uuid: str
     ts: int
     text: str
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Delete:
     author_uuid: str
     ts: int
@@ -71,7 +71,10 @@ def parse_attachment(raw: dict) -> Attachment:
 
 
 def parse_envelope(
-    raw: dict, account: str, groups: Mapping[str, Group], names: Mapping[str, str]
+    raw: dict,
+    account: str,
+    groups: Mapping[str, config.Group],
+    names: Mapping[str, str],
 ) -> Event | None:
     envelope = raw.get("envelope", {})
     author_uuid = envelope.get("sourceUuid")
