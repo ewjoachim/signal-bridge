@@ -1,10 +1,18 @@
 import re
 from datetime import timedelta
 from pathlib import Path
+from typing import Annotated
 from zoneinfo import ZoneInfo
 
 from babel import Locale, UnknownLocaleError
-from pydantic import BaseModel, ConfigDict, SecretStr, field_validator, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    SecretStr,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DURATION_UNITS = {"m": "minutes", "h": "hours", "d": "days"}
@@ -18,26 +26,27 @@ def parse_duration(value: object) -> object:
     return value
 
 
+def check_locale(value: str) -> str:
+    try:
+        Locale.parse(value)
+    except UnknownLocaleError as exc:
+        raise ValueError(str(exc)) from exc
+    return value
+
+
+type Duration = Annotated[timedelta, BeforeValidator(parse_duration)]
+type LocaleName = Annotated[str, AfterValidator(check_locale)]
+
+
 class Group(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     group_id: str
     email: str
     name: str = ""
-    freq: timedelta = timedelta(hours=12)
-    locale: str = "en"
+    freq: Duration = timedelta(hours=12)
+    locale: LocaleName = "en"
     reply_token: SecretStr
-
-    _parse_freq = field_validator("freq", mode="before")(parse_duration)
-
-    @field_validator("locale")
-    @classmethod
-    def check_locale(cls, value: str) -> str:
-        try:
-            Locale.parse(value)
-        except UnknownLocaleError as exc:
-            raise ValueError(str(exc)) from exc
-        return value
 
     @model_validator(mode="before")
     @classmethod
@@ -68,11 +77,7 @@ class Settings(BaseSettings):
 
     data_dir: Path = Path("/data")
     timezone: ZoneInfo = ZoneInfo("UTC")
-    poll_interval: timedelta = timedelta(minutes=2)
-
-    _parse_poll_interval = field_validator("poll_interval", mode="before")(
-        parse_duration
-    )
+    poll_interval: Duration = timedelta(minutes=2)
 
     @property
     def signal_cli_dir(self) -> Path:
