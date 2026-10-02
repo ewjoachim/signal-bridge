@@ -57,6 +57,7 @@ class Settings(pydantic_settings.BaseSettings):
     account: str
     address: str
     admin_email: str
+    alert_on_unparsed: bool = True
 
     imap_host: str
     imap_user: str

@@ -16,7 +16,9 @@ class FakeSignal:
         return self.lines
 
 
-def make_bridge(tmp_path, group: config.Group) -> bridge_main.Bridge:
+def make_bridge(
+    tmp_path, group: config.Group, *, alert_on_unparsed: bool = True
+) -> bridge_main.Bridge:
     settings = config.Settings(
         account=conftest.ACCOUNT,
         address="bridge@example.org",
@@ -29,12 +31,17 @@ def make_bridge(tmp_path, group: config.Group) -> bridge_main.Bridge:
         smtp_password=pydantic.SecretStr("pw"),
         groups={"band": group},
         data_dir=tmp_path,
+        alert_on_unparsed=alert_on_unparsed,
     )
     return bridge_main.Bridge(settings)
 
 
 def test_bad_envelope_is_saved_and_others_processed(tmp_path, monkeypatch, group):
     monkeypatch.setattr(bridge_main, "HEARTBEAT", tmp_path / "heartbeat")
+    sent = []
+    monkeypatch.setattr(
+        bridge_main.mail, "send", lambda settings, msg: sent.append(msg)
+    )
     bridge = make_bridge(tmp_path, group)
     good = json.dumps(conftest.envelope(conftest.group_data(message="still here")))
     bad_shape = json.dumps(
@@ -50,3 +57,22 @@ def test_bad_envelope_is_saved_and_others_processed(tmp_path, monkeypatch, group
         bad_shape,
     ]
     assert (tmp_path / "heartbeat").exists()
+    [alert] = sent
+    assert alert["To"] == "admin@example.org"
+    assert alert["Subject"] == "signal-bridge could not process 2 envelope(s)"
+    assert bad_shape in alert.get_content()
+
+
+def test_unparsed_alert_can_be_disabled(tmp_path, monkeypatch, group):
+    monkeypatch.setattr(bridge_main, "HEARTBEAT", tmp_path / "heartbeat")
+    sent = []
+    monkeypatch.setattr(
+        bridge_main.mail, "send", lambda settings, msg: sent.append(msg)
+    )
+    bridge = make_bridge(tmp_path, group, alert_on_unparsed=False)
+    bridge.signal = FakeSignal(["not json"])  # ty: ignore[invalid-assignment]
+
+    bridge.receive()
+
+    assert sent == []
+    assert (tmp_path / "unparsed.jsonl").read_text() == "not json\n"
