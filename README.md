@@ -20,6 +20,7 @@ Everything is set through environment variables prefixed with `SIGNAL_BRIDGE_`.
 | `SIGNAL_BRIDGE_ACCOUNT` | `+33199000000` | The bot's phone number |
 | `SIGNAL_BRIDGE_ADDRESS` | `bridge@example.org` | Sends digests. Replies come back to `bridge+<reply_token>@example.org`, so the mailbox must accept plus-addressing |
 | `SIGNAL_BRIDGE_ADMIN_EMAIL` | `me@example.org` | Receives an alert after 5 failed iterations in a row |
+| `SIGNAL_BRIDGE_ALERT_ON_UNPARSED` | `true` | Optional. Also email the admin when a Signal envelope can't be processed. It's saved to `unparsed.jsonl` in the data dir either way |
 | `SIGNAL_BRIDGE_IMAP_HOST`, `_IMAP_USER`, `_IMAP_PASSWORD` | | The mailbox of `ADDRESS`, IMAPS (port 993) |
 | `SIGNAL_BRIDGE_SMTP_HOST`, `_SMTP_USER`, `_SMTP_PASSWORD` | | |
 | `SIGNAL_BRIDGE_SMTP_PORT` | `465` | Optional. 465 uses implicit TLS, any other port STARTTLS |

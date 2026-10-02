@@ -57,6 +57,7 @@ class Bridge:
 
     def receive(self) -> None:
         # signal-cli acknowledges what it prints: a line we fail on is never redelivered.
+        unparsed = []
         for line in self.signal.receive():
             try:
                 self.store.ingest(
@@ -67,9 +68,16 @@ class Bridge:
                     "Could not process an envelope, saved to %s",
                     self.settings.unparsed_path,
                 )
-                with self.settings.unparsed_path.open("a") as unparsed:
-                    unparsed.write(line.rstrip("\n") + "\n")
+                with self.settings.unparsed_path.open("a") as unparsed_file:
+                    unparsed_file.write(line.rstrip("\n") + "\n")
+                unparsed.append(f"{traceback.format_exc()}\n{line}")
         HEARTBEAT.touch()
+        if unparsed and self.settings.alert_on_unparsed:
+            self.alert(
+                f"signal-bridge could not process {len(unparsed)} envelope(s)",
+                f"Saved to {self.settings.unparsed_path}.",
+                *unparsed,
+            )
 
     def forward_emails(self) -> None:
         with mail.mailbox(self.settings) as box:
@@ -147,12 +155,12 @@ class Bridge:
         path = self.signal.attachment_path(attachment_id)
         return path.read_bytes() if path.exists() else None
 
-    def alert(self, failures: list[str]) -> None:
+    def alert(self, subject: str, *paragraphs: str) -> None:
         msg = email.message.EmailMessage()
         msg["From"] = self.settings.address
         msg["To"] = self.settings.admin_email
-        msg["Subject"] = "signal-bridge is failing"
-        msg.set_content("\n\n".join(failures))
+        msg["Subject"] = subject
+        msg.set_content("\n\n".join(paragraphs))
         try:
             mail.send(self.settings, msg)
         except Exception:
@@ -175,7 +183,7 @@ def main() -> None:
         failures = bridge.run_once()
         streak = streak + 1 if failures else 0
         if streak == ALERT_AFTER_FAILURES:
-            bridge.alert(failures)
+            bridge.alert("signal-bridge is failing", *failures)
         time.sleep(settings.poll_interval.total_seconds())
 
 
