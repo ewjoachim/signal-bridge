@@ -41,9 +41,11 @@ def test_french_digest(group):
         messages=[message(0, "Salut"), message(1, "Re"), message(2, "Moi", own=True)],
         tz=PARIS,
         read_attachment=lambda _: None,
+        thread=[],
     )
-    assert email["Subject"] == "[The Band] 2 nouveaux messages"
+    assert email["Subject"] == "Nouveaux messages dans The Band"
     body = email.get_content()
+    assert body.startswith("2 nouveaux messages\n\n— mar. 6 oct. —\n\n")
     assert "14:34 marie (vous)\nMoi" in body
     assert body.endswith("--\nRépondez à cet e-mail pour écrire dans le groupe.\n")
 

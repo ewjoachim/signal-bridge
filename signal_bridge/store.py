@@ -27,6 +27,12 @@ CREATE TABLE IF NOT EXISTS names (
     key TEXT PRIMARY KEY,
     name TEXT NOT NULL
 );
+-- Message-IDs of the digests in the current thread (one thread per group and week).
+CREATE TABLE IF NOT EXISTS threads (
+    group_id TEXT PRIMARY KEY,
+    week TEXT NOT NULL,
+    message_ids TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS welcomed (
     group_id TEXT PRIMARY KEY,
     email TEXT NOT NULL
@@ -145,6 +151,21 @@ class Store:
     def mark_digested(self, messages: list[StoredMessage]) -> None:
         self.conn.executemany(
             "UPDATE messages SET digested = 1 WHERE id = ?", [(m.id,) for m in messages]
+        )
+
+    def thread(self, group_id: str, week: str) -> list[str]:
+        row = self.conn.execute(
+            "SELECT message_ids FROM threads WHERE group_id = ? AND week = ?",
+            (group_id, week),
+        ).fetchone()
+        return json.loads(row["message_ids"]) if row else []
+
+    def add_to_thread(self, group_id: str, week: str, message_id: str) -> None:
+        message_ids = [*self.thread(group_id, week), message_id]
+        self.conn.execute(
+            "INSERT INTO threads (group_id, week, message_ids) VALUES (?, ?, ?) "
+            "ON CONFLICT (group_id) DO UPDATE SET week = excluded.week, message_ids = excluded.message_ids",
+            (group_id, week, json.dumps(message_ids)),
         )
 
     def welcomed_email(self, group_id: str) -> str | None:

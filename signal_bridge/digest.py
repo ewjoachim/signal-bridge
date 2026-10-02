@@ -10,6 +10,8 @@ from signal_bridge.config import Group
 from signal_bridge.i18n import translations
 from signal_bridge.store import StoredMessage
 
+REFERENCES_MAX = 10
+
 
 def digest_due(pending: list[StoredMessage], freq: timedelta, now: datetime) -> bool:
     others = [m for m in pending if not m.own]
@@ -23,7 +25,12 @@ def digest_due(pending: list[StoredMessage], freq: timedelta, now: datetime) -> 
 
 def render_body(group: Group, messages: list[StoredMessage], tz: ZoneInfo) -> str:
     t = translations(group.locale)
-    blocks = []
+    count = sum(not m.own for m in messages)
+    blocks = [
+        t.ngettext("{count} new message", "{count} new messages", count).format(
+            count=count
+        )
+    ]
     current_day = None
     for message in messages:
         when = datetime.fromtimestamp(message.ts / 1000, tz=tz)
@@ -74,12 +81,13 @@ def render_digest(
     messages: list[StoredMessage],
     tz: ZoneInfo,
     read_attachment: Callable[[str], bytes | None],
+    thread: list[str],
 ) -> EmailMessage:
-    count = sum(not m.own for m in messages)
-    new_messages = translations(group.locale).ngettext(
-        "{count} new message", "{count} new messages", count
+    subject = (
+        translations(group.locale)
+        .gettext("New messages in {group}")
+        .format(group=group_name)
     )
-    subject = f"[{group_name}] " + new_messages.format(count=count)
     email = base_email(
         address=address,
         display_name=group_name,
@@ -88,6 +96,11 @@ def render_digest(
         subject=subject,
         body=render_body(group, messages, tz),
     )
+    if thread:
+        email["In-Reply-To"] = thread[-1]
+        email["References"] = " ".join(
+            dict.fromkeys(thread[:1] + thread[-REFERENCES_MAX + 1 :])
+        )
     for message in messages:
         for attachment in message.attachments:
             if (

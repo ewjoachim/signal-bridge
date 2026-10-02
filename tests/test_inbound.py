@@ -14,7 +14,7 @@ def reply(
     email = EmailMessage()
     email["From"] = sender
     email["To"] = to
-    email["Subject"] = "Re: [The Band] 2 new messages"
+    email["Subject"] = "Re: New messages in The Band"
     email.set_content(body)
     return email
 

@@ -11,6 +11,10 @@ msgid ""
 "{delay} (right away if someone mentions you)."
 msgstr ""
 
+#, python-brace-format
+msgid "New messages in {group}"
+msgstr ""
+
 msgid "Reply to this email to post in the group."
 msgstr ""
 

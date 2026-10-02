@@ -29,6 +29,10 @@ msgstr ""
 "Les nouveaux messages du groupe vous sont envoyés regroupés, avec au plus"
 " {delay} d'attente (immédiatement si quelqu'un vous mentionne)."
 
+#, python-brace-format
+msgid "New messages in {group}"
+msgstr "Nouveaux messages dans {group}"
+
 msgid "Reply to this email to post in the group."
 msgstr "Répondez à cet e-mail pour écrire dans le groupe."
 

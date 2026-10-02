@@ -52,11 +52,13 @@ def test_render_digest(group):
         group_name="The Band",
         messages=messages,
         tz=PARIS,
+        thread=[],
         read_attachment=lambda attachment_id: (
             b"%PDF" if attachment_id == "abc.pdf" else None
         ),
     )
-    assert email["Subject"] == "[The Band] 2 new messages"
+    assert email["Subject"] == "New messages in The Band"
+    assert email["In-Reply-To"] is None
     assert email["From"] == "The Band <bridge@example.org>"
     assert email["To"] == "marie@example.org"
     assert email["Reply-To"] == "bridge+s3cret@example.org"
@@ -64,6 +66,7 @@ def test_render_digest(group):
     body = email.get_body(preferencelist=("plain",))
     assert body is not None
     assert body.get_content() == (
+        "2 new messages\n\n"
         "— Tue 6 Oct —\n\n"
         "14:32 Paul\nRehearsal moved to 8pm\n📎 score.pdf\n\n"
         "14:37 marie (you)\nWorks for me\n\n"
@@ -88,4 +91,30 @@ def test_localized_dates(group):
     body = render_body(
         group.model_copy(update={"locale": "fr"}), [message(0, "Salut")], PARIS
     )
-    assert body.startswith("— mar. 6 oct. —\n\n14:32 Paul\nSalut\n")
+    assert body.startswith(
+        "1 nouveau message\n\n— mar. 6 oct. —\n\n14:32 Paul\nSalut\n"
+    )
+
+
+def test_digest_threading(group):
+    def digest(thread: list[str]):
+        return render_digest(
+            address="bridge@example.org",
+            reply_to="bridge+s3cret@example.org",
+            group=group,
+            group_name="The Band",
+            messages=[message(0, "hi")],
+            tz=PARIS,
+            read_attachment=lambda _: None,
+            thread=thread,
+        )
+
+    ids = [f"<{n}@example.org>" for n in range(15)]
+    email = digest(ids[:2])
+    assert email["In-Reply-To"] == ids[1]
+    assert email["References"] == f"{ids[0]} {ids[1]}"
+
+    references = str(digest(ids)["References"]).split()
+    assert references[0] == ids[0]
+    assert references[-1] == ids[-1]
+    assert len(references) == 10
