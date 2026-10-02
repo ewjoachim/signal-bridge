@@ -1,19 +1,12 @@
+import datetime
+import pathlib
 import re
-from datetime import timedelta
-from pathlib import Path
+import zoneinfo
 from typing import Annotated
-from zoneinfo import ZoneInfo
 
-from babel import Locale, UnknownLocaleError
-from pydantic import (
-    AfterValidator,
-    BaseModel,
-    BeforeValidator,
-    ConfigDict,
-    SecretStr,
-    model_validator,
-)
-from pydantic_settings import BaseSettings, SettingsConfigDict
+import babel
+import pydantic
+import pydantic_settings
 
 DURATION_UNITS = {"m": "minutes", "h": "hours", "d": "days"}
 
@@ -22,33 +15,33 @@ def parse_duration(value: object) -> object:
     if isinstance(value, str) and (
         match := re.fullmatch(r"(\d+)([mhd])", value.strip())
     ):
-        return timedelta(**{DURATION_UNITS[match[2]]: int(match[1])})
+        return datetime.timedelta(**{DURATION_UNITS[match[2]]: int(match[1])})
     return value
 
 
 def check_locale(value: str) -> str:
     try:
-        Locale.parse(value)
-    except UnknownLocaleError as exc:
+        babel.Locale.parse(value)
+    except babel.UnknownLocaleError as exc:
         raise ValueError(str(exc)) from exc
     return value
 
 
-type Duration = Annotated[timedelta, BeforeValidator(parse_duration)]
-type LocaleName = Annotated[str, AfterValidator(check_locale)]
+type Duration = Annotated[datetime.timedelta, pydantic.BeforeValidator(parse_duration)]
+type LocaleName = Annotated[str, pydantic.AfterValidator(check_locale)]
 
 
-class Group(BaseModel):
-    model_config = ConfigDict(frozen=True)
+class Group(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(frozen=True)
 
     group_id: str
     email: str
     name: str = ""
-    freq: Duration = timedelta(hours=12)
+    freq: Duration = datetime.timedelta(hours=12)
     locale: LocaleName = "en"
-    reply_token: SecretStr
+    reply_token: pydantic.SecretStr
 
-    @model_validator(mode="before")
+    @pydantic.model_validator(mode="before")
     @classmethod
     def default_name(cls, data: object) -> object:
         if isinstance(data, dict) and not data.get("name") and "email" in data:
@@ -56,8 +49,8 @@ class Group(BaseModel):
         return data
 
 
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
+class Settings(pydantic_settings.BaseSettings):
+    model_config = pydantic_settings.SettingsConfigDict(
         env_prefix="SIGNAL_BRIDGE_", env_nested_delimiter="__", frozen=True
     )
 
@@ -67,24 +60,24 @@ class Settings(BaseSettings):
 
     imap_host: str
     imap_user: str
-    imap_password: SecretStr
+    imap_password: pydantic.SecretStr
     smtp_host: str
     smtp_port: int = 465
     smtp_user: str
-    smtp_password: SecretStr
+    smtp_password: pydantic.SecretStr
 
     groups: dict[str, Group]
 
-    data_dir: Path = Path("/data")
-    timezone: ZoneInfo = ZoneInfo("UTC")
-    poll_interval: Duration = timedelta(minutes=2)
+    data_dir: pathlib.Path = pathlib.Path("/data")
+    timezone: zoneinfo.ZoneInfo = zoneinfo.ZoneInfo("UTC")
+    poll_interval: Duration = datetime.timedelta(minutes=2)
 
     @property
-    def signal_cli_dir(self) -> Path:
+    def signal_cli_dir(self) -> pathlib.Path:
         return self.data_dir / "signal-cli"
 
     @property
-    def db_path(self) -> Path:
+    def db_path(self) -> pathlib.Path:
         return self.data_dir / "bridge.db"
 
     def reply_address(self, group: Group) -> str:

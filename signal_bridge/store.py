@@ -1,11 +1,10 @@
+import dataclasses
 import json
+import pathlib
 import sqlite3
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
-from pathlib import Path
 
-from signal_bridge.config import Group
-from signal_bridge.events import Attachment, Delete, Edit, NewMessage, parse_envelope
+from signal_bridge import config, events
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (
@@ -40,20 +39,20 @@ CREATE TABLE IF NOT EXISTS welcomed (
 """
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class StoredMessage:
     id: int
     author: str
     ts: int
     text: str
     quote: str | None
-    attachments: tuple[Attachment, ...]
+    attachments: tuple[events.Attachment, ...]
     mentions_bot: bool
     own: bool
 
 
 class Store:
-    def __init__(self, path: Path | str) -> None:
+    def __init__(self, path: pathlib.Path | str) -> None:
         self.conn = sqlite3.connect(path, autocommit=True)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
@@ -70,22 +69,24 @@ class Store:
             for row in self.conn.execute("SELECT key, name FROM names")
         }
 
-    def ingest(self, raw: dict, account: str, groups: Mapping[str, Group]) -> None:
+    def ingest(
+        self, raw: dict, account: str, groups: Mapping[str, config.Group]
+    ) -> None:
         envelope = raw.get("envelope", {})
         if (uuid := envelope.get("sourceUuid")) and (
             name := envelope.get("sourceName")
         ):
             self.remember_name(uuid, name)
-        event = parse_envelope(raw, account, groups, self.names())
+        event = events.parse_envelope(raw, account, groups, self.names())
         if event is None:
             return
-        if isinstance(event, NewMessage) and event.group_name:
+        if isinstance(event, events.NewMessage) and event.group_name:
             self.remember_name(event.group_id, event.group_name)
         self.apply(event)
 
-    def apply(self, event: NewMessage | Edit | Delete) -> None:
+    def apply(self, event: events.NewMessage | events.Edit | events.Delete) -> None:
         match event:
-            case NewMessage():
+            case events.NewMessage():
                 self.conn.execute(
                     """
                     INSERT OR IGNORE INTO messages
@@ -103,12 +104,12 @@ class Store:
                         event.mentions_bot,
                     ),
                 )
-            case Edit():
+            case events.Edit():
                 self.conn.execute(
                     "UPDATE messages SET text = ? WHERE author_uuid = ? AND ts = ? AND NOT digested",
                     (event.text, event.author_uuid, event.ts),
                 )
-            case Delete():
+            case events.Delete():
                 self.conn.execute(
                     "DELETE FROM messages WHERE author_uuid = ? AND ts = ? AND NOT digested",
                     (event.author_uuid, event.ts),
@@ -120,7 +121,7 @@ class Store:
         author: str,
         ts: int,
         text: str,
-        attachments: tuple[Attachment, ...],
+        attachments: tuple[events.Attachment, ...],
     ) -> None:
         self.conn.execute(
             "INSERT INTO messages (group_id, author, ts, text, attachments, own) VALUES (?, ?, ?, ?, ?, 1)",
@@ -140,7 +141,7 @@ class Store:
                 text=row["text"],
                 quote=row["quote"],
                 attachments=tuple(
-                    Attachment(**a) for a in json.loads(row["attachments"])
+                    events.Attachment(**a) for a in json.loads(row["attachments"])
                 ),
                 mentions_bot=bool(row["mentions_bot"]),
                 own=bool(row["own"]),
@@ -181,5 +182,5 @@ class Store:
         )
 
 
-def dump_attachments(attachments: tuple[Attachment, ...]) -> str:
-    return json.dumps([asdict(a) for a in attachments])
+def dump_attachments(attachments: tuple[events.Attachment, ...]) -> str:
+    return json.dumps([dataclasses.asdict(a) for a in attachments])

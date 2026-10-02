@@ -1,40 +1,40 @@
+import dataclasses
+import email.message
+import email.utils
 import hmac
+import pathlib
 from collections.abc import Iterable
-from dataclasses import dataclass
-from email.message import EmailMessage
-from email.utils import getaddresses, parseaddr
-from html.parser import HTMLParser
-from pathlib import Path
+from html import parser
 
-from mailparser_reply import EmailReplyParser
+import mailparser_reply
 
-from signal_bridge.config import Group
+from signal_bridge import config
 
 RECIPIENT_HEADERS = ("To", "Cc", "Delivered-To", "X-Original-To")
 REPLY_LANGUAGES = ["en", "fr", "de", "es", "it", "nl"]
 ATTRIBUTION_MAX_LINES = 4
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class InboundFile:
     filename: str
     data: bytes
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Inbound:
     text: str
     files: tuple[InboundFile, ...]
 
 
 def match_group(
-    email: EmailMessage, address: str, groups: Iterable[Group]
-) -> Group | None:
-    sender = parseaddr(str(email.get("From", "")))[1].casefold()
+    msg: email.message.EmailMessage, address: str, groups: Iterable[config.Group]
+) -> config.Group | None:
+    sender = email.utils.parseaddr(str(msg.get("From", "")))[1].casefold()
     base_local, _, base_domain = address.casefold().partition("@")
     tokens = set()
-    for _, recipient in getaddresses(
-        [str(v) for h in RECIPIENT_HEADERS for v in email.get_all(h, [])]
+    for _, recipient in email.utils.getaddresses(
+        [str(v) for h in RECIPIENT_HEADERS for v in msg.get_all(h, [])]
     ):
         local, _, domain = recipient.casefold().rpartition("@")
         name, plus, token = local.partition("+")
@@ -49,7 +49,7 @@ def match_group(
     return None
 
 
-class _TextExtractor(HTMLParser):
+class _TextExtractor(parser.HTMLParser):
     BLOCK_TAGS = frozenset(
         {"p", "div", "br", "li", "tr", "blockquote", "h1", "h2", "h3"}
     )
@@ -88,21 +88,23 @@ def strip_trailing_quote(text: str) -> str:
     return "\n".join(lines[:end]).strip()
 
 
-def parse_inbound(email: EmailMessage) -> Inbound:
-    body = email.get_body(preferencelist=("plain", "html"))
+def parse_inbound(msg: email.message.EmailMessage) -> Inbound:
+    body = msg.get_body(preferencelist=("plain", "html"))
     text = ""
     if body is not None:
         content = body.get_content()
         if body.get_content_subtype() == "html":
             content = html_to_text(content)
-        reply = EmailReplyParser(languages=REPLY_LANGUAGES).parse_reply(text=content)
+        reply = mailparser_reply.EmailReplyParser(
+            languages=REPLY_LANGUAGES
+        ).parse_reply(text=content)
         text = strip_trailing_quote(reply or "")
 
     files = []
-    for part in email.walk():
+    for part in msg.walk():
         if part is body or part.is_multipart() or not (filename := part.get_filename()):
             continue
         data = part.get_payload(decode=True)
         if isinstance(data, bytes):
-            files.append(InboundFile(filename=Path(filename).name, data=data))
+            files.append(InboundFile(filename=pathlib.Path(filename).name, data=data))
     return Inbound(text=text, files=tuple(files))
