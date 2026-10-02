@@ -4,7 +4,7 @@ import pathlib
 import sqlite3
 from collections.abc import Mapping
 
-from signal_bridge import config, events
+from signal_bridge import config, events, models
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (
@@ -72,12 +72,11 @@ class Store:
     def ingest(
         self, raw: dict, account: str, groups: Mapping[str, config.Group]
     ) -> None:
-        envelope = raw.get("envelope", {})
-        if (uuid := envelope.get("sourceUuid")) and (
-            name := envelope.get("sourceName")
-        ):
-            self.remember_name(uuid, name)
-        event = events.parse_envelope(raw, account, groups, self.names())
+        received = models.Received.model_validate(raw)
+        envelope = received.envelope
+        if envelope.source_uuid and envelope.source_name:
+            self.remember_name(envelope.source_uuid, envelope.source_name)
+        event = events.parse_envelope(received, account, groups, self.names())
         if event is None:
             return
         if isinstance(event, events.NewMessage) and event.group_name:

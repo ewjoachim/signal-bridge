@@ -80,6 +80,10 @@ class Settings(pydantic_settings.BaseSettings):
     def db_path(self) -> pathlib.Path:
         return self.data_dir / "bridge.db"
 
+    @property
+    def unparsed_path(self) -> pathlib.Path:
+        return self.data_dir / "unparsed.jsonl"
+
     def reply_address(self, group: Group) -> str:
         local, _, domain = self.address.partition("@")
         return f"{local}+{group.reply_token.get_secret_value()}@{domain}"
